@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink-200 rounded-full border-2 border-transparent bg-clip-padding;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-300;
+  }
+}
+
+@layer components {
+  .input-base {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition-all outline-none focus:border-brand-500 focus:shadow-glow;
+  }
+  .input-label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+  .input-hint {
+    @apply mt-1 text-xs text-ink-400;
+  }
+  .card-surface {
+    @apply rounded-2xl border border-ink-100 bg-white shadow-card;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-500 transition-all hover:bg-ink-50 hover:text-ink-900;
+  }
+  .nav-link-active {
+    @apply bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700;
+  }
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-ink-100;
+    background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
