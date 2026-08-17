@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PiggyBank, Plus, Eye, RefreshCw, ArrowDownToLine, Receipt, ChevronLeft, Search } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -8,18 +8,29 @@ import { DataTable, type Column } from '@/components/ui/Table';
 import { Modal } from '@/components/ui/Modal';
 import { useToast, Toast } from '@/components/ui/Feedback';
 import { useNav } from '@/lib/nav';
-import { fixedDeposits } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth';
+import { fdService, type FdResponse } from '@/services/fdRdService';
 import { formatINR, formatDate, classNames } from '@/lib/format';
-import type { FixedDeposit } from '@/lib/types';
 
 export function FdListPage() {
   const { navigate } = useNav();
   const { toast, showToast } = useToast();
+  const { user } = useAuth();
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<FixedDeposit | null>(null);
+  const [selected, setSelected] = useState<FdResponse | null>(null);
+  const [fds, setFds] = useState<FdResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = fixedDeposits.filter((f) => {
+  useEffect(() => {
+    if (!user) return;
+    fdService.getByCustomer(user.id)
+      .then(setFds)
+      .catch(() => showToast('Failed to load FDs', 'error'))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  const filtered = fds.filter((f) => {
     if (filter !== 'ALL' && f.status !== filter) return false;
     if (search && !f.fdNumber.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -28,11 +39,11 @@ export function FdListPage() {
   const totalPrincipal = filtered.reduce((s, f) => s + f.principal, 0);
   const totalInterest = filtered.reduce((s, f) => s + f.interestEarned, 0);
 
-  const columns: Column<FixedDeposit>[] = [
+  const columns: Column<FdResponse>[] = [
     { key: 'fdNumber', header: 'FD No.', render: (f) => <span className="font-mono text-sm font-semibold text-ink-900">{f.fdNumber}</span> },
     { key: 'principal', header: 'Amount', align: 'right', render: (f) => <span className="font-semibold text-ink-900">{formatINR(f.principal)}</span> },
-    { key: 'rate', header: 'Rate', render: (f) => <Badge variant="info">{f.rate}% p.a.</Badge> },
-    { key: 'tenure', header: 'Tenure', render: (f) => <span className="text-ink-600">{f.tenureMonths} months</span> },
+    { key: 'interestRate', header: 'Rate', render: (f) => <Badge variant="info">{f.interestRate}% p.a.</Badge> },
+    { key: 'tenureDays', header: 'Tenure', render: (f) => <span className="text-ink-600">{f.tenureDays} days</span> },
     { key: 'maturityDate', header: 'Maturity', render: (f) => <span className="text-ink-600">{formatDate(f.maturityDate)}</span> },
     { key: 'maturityAmount', header: 'Maturity Amt', align: 'right', render: (f) => <span className="font-semibold text-accent-700">{formatINR(f.maturityAmount)}</span> },
     {
@@ -46,8 +57,8 @@ export function FdListPage() {
           <button onClick={() => setSelected(f)} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="View"><Eye className="h-4 w-4" /></button>
           {f.status === 'ACTIVE' && (
             <>
-              <button onClick={() => showToast('FD renewal initiated')} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Renew"><RefreshCw className="h-4 w-4" /></button>
-              <button onClick={() => showToast('Withdrawal request submitted')} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Withdraw"><ArrowDownToLine className="h-4 w-4" /></button>
+              <button onClick={async () => { try { await fdService.renew(f.id); showToast('FD renewed successfully'); const updated = await fdService.getByCustomer(user!.id); setFds(updated); } catch { showToast('Renewal failed', 'error'); } }} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Renew"><RefreshCw className="h-4 w-4" /></button>
+              <button onClick={async () => { try { await fdService.withdraw(f.id); showToast('FD withdrawn'); const updated = await fdService.getByCustomer(user!.id); setFds(updated); } catch { showToast('Withdrawal failed', 'error'); } }} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700" title="Withdraw"><ArrowDownToLine className="h-4 w-4" /></button>
             </>
           )}
         </div>
@@ -91,7 +102,7 @@ export function FdListPage() {
       <Card padding="md">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            {['ALL', 'ACTIVE', 'MATURED'].map((s) => (
+            {['ALL', 'ACTIVE', 'MATURED', 'WITHDRAWN'].map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
@@ -114,7 +125,11 @@ export function FdListPage() {
             />
           </div>
         </div>
-        <DataTable columns={columns} data={filtered} rowKey={(f) => f.id} onRowClick={setSelected} />
+        {loading ? (
+          <div className="py-12 text-center text-ink-400">Loading FDs…</div>
+        ) : (
+          <DataTable columns={columns} data={filtered} rowKey={(f) => f.id} onRowClick={setSelected} />
+        )}
       </Card>
 
       <Modal
@@ -127,20 +142,20 @@ export function FdListPage() {
           <>
             <Button variant="ghost" onClick={() => setSelected(null)}>Close</Button>
             <Button variant="outline" leftIcon={<Receipt className="h-4 w-4" />} onClick={() => showToast('Statement downloaded', 'info')}>Statement</Button>
-            {selected?.status === 'ACTIVE' && <Button onClick={() => { setSelected(null); showToast('Renewal initiated'); }}>Renew FD</Button>}
+            {selected?.status === 'ACTIVE' && <Button onClick={async () => { if (!selected) return; await fdService.renew(selected.id); setSelected(null); showToast('Renewal initiated'); const updated = await fdService.getByCustomer(user!.id); setFds(updated); }}>Renew FD</Button>}
           </>
         }
       >
         {selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <DetailRow label="Type" value={selected.type.replace('_', ' ')} />
+              <DetailRow label="Type" value={selected.fdType.replace('_', ' ')} />
               <DetailRow label="Status" value={selected.status} />
               <DetailRow label="Principal" value={formatINR(selected.principal)} />
-              <DetailRow label="Interest rate" value={`${selected.rate}% p.a.`} />
-              <DetailRow label="Tenure" value={`${selected.tenureMonths} months`} />
+              <DetailRow label="Interest rate" value={`${selected.interestRate}% p.a.`} />
+              <DetailRow label="Tenure" value={`${selected.tenureDays} days`} />
               <DetailRow label="Auto-renew" value={selected.autoRenew ? 'Yes' : 'No'} />
-              <DetailRow label="Start date" value={formatDate(selected.startDate)} />
+              <DetailRow label="Start date" value={formatDate(selected.openedDate)} />
               <DetailRow label="Maturity date" value={formatDate(selected.maturityDate)} />
             </div>
             <div className="rounded-xl bg-accent-50 p-4">

@@ -35,3 +35,7 @@ spring:
           uri: lb://LOAN-SERVICE
           predicates:
             - Path=/api/loans/**
+        - id: fd-rd-service
+          uri: lb://FD-RD-SERVICE
+          predicates:
+            - Path=/api/fd/**, /api/rd/**

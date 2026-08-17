@@ -3,7 +3,7 @@ import { Landmark, Wallet, Building2, CreditCard, Briefcase, GraduationCap, Glob
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input, Select, Checkbox } from '@/components/ui/Field';
+import { Input, Select } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { useToast, Toast } from '@/components/ui/Feedback';
 import { useNav } from '@/lib/nav';

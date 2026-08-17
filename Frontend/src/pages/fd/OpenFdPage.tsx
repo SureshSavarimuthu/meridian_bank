@@ -3,10 +3,11 @@ import { PiggyBank, ChevronLeft, Check, Calculator, TrendingUp, Calendar, Percen
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input, Select, Checkbox, RadioGroup } from '@/components/ui/Field';
+import { Input, Select, Checkbox } from '@/components/ui/Field';
 import { useToast, Toast } from '@/components/ui/Feedback';
 import { useNav } from '@/lib/nav';
-import { accounts } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth';
+import { fdService } from '@/services/fdRdService';
 import { formatINR, formatDate, computeFdMaturity, classNames } from '@/lib/format';
 import type { FdType, PayoutFrequency } from '@/lib/types';
 
@@ -26,12 +27,14 @@ const tenureOptions = [
 export function OpenFdPage() {
   const { navigate } = useNav();
   const { toast, showToast } = useToast();
+  const { user } = useAuth();
   const [fdType, setFdType] = useState<FdType>('CUMULATIVE');
   const [amount, setAmount] = useState('100000');
   const [tenure, setTenure] = useState('365');
   const [payout, setPayout] = useState<PayoutFrequency>('AT_MATURITY');
   const [autoRenew, setAutoRenew] = useState(true);
-  const [nominee, setNominee] = useState('Jane Doe');
+  const [nominee, setNominee] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const rate = useMemo(() => {
     const days = Number(tenure);
@@ -52,9 +55,27 @@ export function OpenFdPage() {
     return d.toISOString().slice(0, 10);
   }, [tenure]);
 
-  const submit = () => {
-    showToast('Fixed deposit opened successfully! FD No: FD-2024-001');
-    setTimeout(() => navigate('fd-list'), 1500);
+  const submit = async () => {
+    if (!user) return;
+    setSubmitting(true);
+    try {
+      const result = await fdService.create({
+        customerId: user.id,
+        linkedAccountNumber: '0000000001',
+        fdType,
+        principal: Number(amount),
+        tenureDays: Number(tenure),
+        payoutFrequency: payout,
+        autoRenew,
+        nomineeName: nominee || undefined,
+      });
+      showToast(`FD opened successfully! FD No: ${result.fdNumber}`);
+      setTimeout(() => navigate('fd-list'), 1500);
+    } catch {
+      showToast('Failed to open FD', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -91,11 +112,10 @@ export function OpenFdPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Select label="Debit from account" options={accounts.map((a) => ({ value: a.id, label: `${a.type.charAt(0)}${a.type.slice(1).toLowerCase()} · XXXX${a.accountNumber.slice(-4)}` }))} />
                 <Input label="Deposit amount" required type="number" value={amount} onChange={(e) => setAmount(e.target.value)} hint="Min ₹1,000 · No maximum" leftIcon={<span className="text-sm font-semibold text-ink-500">₹</span>} />
+                <Select label="Tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} options={tenureOptions} />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Select label="Tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} options={tenureOptions} />
                 <div>
                   <label className="input-label">Interest rate</label>
                   <div className="flex h-11 items-center gap-2 rounded-xl bg-accent-50 px-4 text-accent-700">
@@ -103,11 +123,11 @@ export function OpenFdPage() {
                     <span className="font-display text-base font-bold">{rate}% p.a.</span>
                   </div>
                 </div>
+                {fdType === 'NON_CUMULATIVE' && (
+                  <Select label="Payout frequency" value={payout} onChange={(e) => setPayout(e.target.value as PayoutFrequency)}
+                    options={[{ value: 'MONTHLY', label: 'Monthly' }, { value: 'QUARTERLY', label: 'Quarterly' }, { value: 'ANNUAL', label: 'Annual' }, { value: 'AT_MATURITY', label: 'At Maturity' }]} />
+                )}
               </div>
-              {fdType === 'NON_CUMULATIVE' && (
-                <Select label="Payout frequency" value={payout} onChange={(e) => setPayout(e.target.value as PayoutFrequency)}
-                  options={[{ value: 'MONTHLY', label: 'Monthly' }, { value: 'QUARTERLY', label: 'Quarterly' }, { value: 'ANNUAL', label: 'Annual' }, { value: 'AT_MATURITY', label: 'At Maturity' }]} />
-              )}
             </div>
           </Card>
 
@@ -117,12 +137,7 @@ export function OpenFdPage() {
               <Checkbox checked={autoRenew} onChange={setAutoRenew}>
                 Auto-renew on maturity (same period)
               </Checkbox>
-              <Checkbox checked={false} onChange={() => {}}>Sweep-in facility</Checkbox>
-              <Checkbox checked={false} onChange={() => {}}>Loan against this FD</Checkbox>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Nominee name" value={nominee} onChange={(e) => setNominee(e.target.value)} />
-                <Select label="Nominee relationship" options={[{ value: 'SPOUSE', label: 'Spouse' }, { value: 'CHILD', label: 'Child' }, { value: 'PARENT', label: 'Parent' }]} />
-              </div>
+              <Input label="Nominee name" value={nominee} onChange={(e) => setNominee(e.target.value)} />
             </div>
           </Card>
         </div>
@@ -172,8 +187,9 @@ export function OpenFdPage() {
           </Card>
 
           <div className="space-y-2">
-            <Button fullWidth size="lg" onClick={submit} leftIcon={<Check className="h-4 w-4" />}>Confirm & open FD</Button>
-            <Button fullWidth variant="outline" onClick={() => showToast('Draft saved', 'info')}>Save draft</Button>
+            <Button fullWidth size="lg" onClick={submit} disabled={submitting} leftIcon={<Check className="h-4 w-4" />}>
+              {submitting ? 'Opening FD…' : 'Confirm & open FD'}
+            </Button>
           </div>
         </div>
       </div>

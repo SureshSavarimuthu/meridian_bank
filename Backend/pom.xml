@@ -23,6 +23,7 @@
         <module>auth-service</module>
         <module>account-service</module>
         <module>loan-service</module>
+        <module>fd-rd-service</module>
     </modules>
 
     <properties>

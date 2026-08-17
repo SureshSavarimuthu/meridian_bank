@@ -1,13 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import {
   LayoutDashboard, Landmark, PiggyBank, CalendarClock, Banknote,
-  ArrowLeftRight, ShieldCheck, Bell, Search, LogOut, Menu, X, ChevronRight,
-  Users,
-  KeyRound,
-  FileCheck,
-  Percent,
-  Settings,
-  Lock,
+  ArrowLeftRight, Bell, Search, LogOut, Menu, ChevronRight,
+  Users, KeyRound, FileCheck, Percent, Settings, Lock,
 } from 'lucide-react';
 import { useNav, type Route } from '@/lib/nav';
 import { useAuth } from '@/lib/auth';
@@ -53,7 +48,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // Filter nav items based on user roles
   const userNavItems = navItems.filter((item) => {
     if (!item.roles) return true; // Show if no role restriction
-    return hasAnyRole(item.roles as any[]);
+    return hasAnyRole(item.roles as import('@/lib/auth').UserRole[]);
   });
 
   const sidebar = (

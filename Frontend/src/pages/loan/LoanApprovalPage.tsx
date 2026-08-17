@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Banknote, ChevronLeft, Eye, Clock, AlertTriangle, CheckCircle2, XCircle, ArrowRight, Calendar } from 'lucide-react';
+import { Banknote, ChevronLeft, Eye, Clock, AlertTriangle, CheckCircle2, XCircle, Calendar } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -10,37 +10,6 @@ import { useNav } from '@/lib/nav';
 import { loans } from '@/lib/mockData';
 import { formatINR, formatDate, classNames } from '@/lib/format';
 import type { Loan } from '@/lib/types';
-
-// ============================================
-// APPROVAL CHAIN VISUALIZATION
-// ============================================
-function ApprovalChain({ loan }: { loan: Loan }) {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      {loan.approvalTimeline.map((step, idx) => (
-        <div key={step.level} className="flex items-center gap-2">
-          <div className="flex flex-col items-center gap-2">
-            <div className={classNames(
-              'flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white',
-              step.status === 'APPROVED' && 'bg-success-600',
-              step.status === 'PENDING' && 'bg-ink-300',
-              step.status === 'REJECTED' && 'bg-error-600'
-            )}>
-              {step.status === 'APPROVED' ? <CheckCircle2 className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
-            </div>
-            <span className="text-xs font-medium text-ink-700">{step.role.replace('_', ' ')}</span>
-            {step.status === 'APPROVED' && step.approvedAt && (
-              <span className="text-xs text-success-600">✓ {formatDate(step.approvedAt)}</span>
-            )}
-          </div>
-          {idx < loan.approvalTimeline.length - 1 && (
-            <div className="mx-2 h-0.5 w-8 bg-ink-200 sm:mx-0 sm:h-8 sm:w-0.5" />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ============================================
 // MAIN LOAN APPROVAL PAGE

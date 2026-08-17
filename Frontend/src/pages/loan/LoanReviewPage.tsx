@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Banknote, ChevronLeft, Check, X, RotateCcw, Printer, Download, ShieldCheck, FileCheck, TrendingUp } from 'lucide-react';
+import { Banknote, ChevronLeft, Check, RotateCcw, Printer, Download, ShieldCheck, FileCheck, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';

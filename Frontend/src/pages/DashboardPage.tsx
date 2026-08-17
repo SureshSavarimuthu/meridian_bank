@@ -1,13 +1,12 @@
 import {
   Wallet, PiggyBank, CalendarClock, Banknote, CreditCard, TrendingUp,
-  ArrowUpRight, ArrowDownRight, Receipt, Download, ArrowLeftRight,
+  ArrowUpRight, ArrowDownRight, Download, ArrowLeftRight,
   FileText, Plus, Eye, EyeOff, CheckCircle, Clock, AlertCircle, Users,
-  TrendingDown, BarChart3, Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNav } from '@/lib/nav';
 import { useAuth } from '@/lib/auth';
-import { accounts, fixedDeposits, recurringDeposits, loans, transactions, cards, mockUsers } from '@/lib/mockData';
+import { accounts, fixedDeposits, recurringDeposits, loans, transactions, cards } from '@/lib/mockData';
 import { formatINR, formatINRShort, formatDate, maskAccount, classNames } from '@/lib/format';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -236,7 +235,6 @@ function BranchManagerDashboard() {
 
   const pendingLoans = loans.filter((l) => l.status === 'UNDER_REVIEW');
   const totalLoanValue = loans.reduce((sum, l) => sum + l.amount, 0);
-  const averageCreditScore = Math.round(loans.reduce((sum, l) => sum + l.creditScore, 0) / loans.length);
   const totalCustomers = 245; // Mock data
 
   const statCards = [
@@ -361,72 +359,6 @@ function LoanOfficerDashboard() {
                 <Button size="sm" onClick={() => navigate('loan-approval')}>Review</Button>
               </div>
             </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-// ============================================
-// ADMIN DASHBOARD
-// ============================================
-function AdminDashboard() {
-  const { navigate } = useNav();
-  const { user } = useAuth();
-
-  const systemStats = [
-    { label: 'Active Users', value: 1250, trend: 'up', icon: <Users className="h-5 w-5" /> },
-    { label: 'Total Customers', value: 12500, trend: 'up', icon: <TrendingUp className="h-5 w-5" /> },
-    { label: 'Active Loans', value: 342, trend: 'up', icon: <Banknote className="h-5 w-5" /> },
-    { label: 'System Uptime', value: '99.99%', trend: 'up', icon: <Zap className="h-5 w-5" /> },
-  ];
-
-  const adminActions = [
-    { label: 'User Management', icon: <Users className="h-5 w-5" />, color: 'bg-brand-50 text-brand-600', route: 'admin' as const },
-    { label: 'Approval Matrix', icon: <CheckCircle className="h-5 w-5" />, color: 'bg-accent-100 text-accent-700', route: 'admin' as const },
-    { label: 'Interest Rates', icon: <TrendingUp className="h-5 w-5" />, color: 'bg-success-100 text-success-600', route: 'admin' as const },
-    { label: 'System Config', icon: <BarChart3 className="h-5 w-5" />, color: 'bg-warning-100 text-warning-700', route: 'admin' as const },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-medium text-ink-400">System Administration</p>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">{user?.fullName}</h1>
-        <p className="mt-1 text-xs text-ink-400">System Administrator</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {systemStats.map((stat) => (
-          <Card key={stat.label} padding="md">
-            <div className="flex items-start justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-                {stat.icon}
-              </div>
-              {stat.trend === 'up' && <TrendingUp className="h-4 w-4 text-success-600" />}
-            </div>
-            <p className="mt-4 text-sm font-medium text-ink-500">{stat.label}</p>
-            <p className="mt-1 font-display text-2xl font-extrabold tracking-tight text-ink-900">{stat.value}</p>
-          </Card>
-        ))}
-      </div>
-
-      <Card padding="md">
-        <h3 className="font-display text-base font-bold text-ink-900">Administration Tools</h3>
-        <p className="mb-4 text-sm text-ink-500">Quick access to system configuration</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {adminActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => navigate(action.route)}
-              className="flex flex-col items-center gap-3 rounded-xl border border-ink-100 p-4 transition-all hover:border-brand-300 hover:shadow-soft"
-            >
-              <div className={classNames('flex h-12 w-12 items-center justify-center rounded-lg', action.color)}>
-                {action.icon}
-              </div>
-              <span className="text-sm font-semibold text-ink-700">{action.label}</span>
-            </button>
           ))}
         </div>
       </Card>

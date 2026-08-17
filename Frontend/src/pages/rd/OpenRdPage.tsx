@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Input, Select, RadioGroup, Checkbox } from '@/components/ui/Field';
 import { useToast, Toast } from '@/components/ui/Feedback';
 import { useNav } from '@/lib/nav';
-import { accounts } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth';
+import { rdService } from '@/services/fdRdService';
 import { formatINR, formatDate, computeRdMaturity } from '@/lib/format';
 
 const tenureOptions = [
@@ -19,12 +20,14 @@ const tenureOptions = [
 export function OpenRdPage() {
   const { navigate } = useNav();
   const { toast, showToast } = useToast();
+  const { user } = useAuth();
   const [monthly, setMonthly] = useState('1000');
   const [tenure, setTenure] = useState('12');
   const [debitDate, setDebitDate] = useState('15');
   const [paymentMode, setPaymentMode] = useState('AUTO_DEBIT');
-  const [nominee, setNominee] = useState('Jane Doe');
+  const [nominee, setNominee] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const rate = useMemo(() => {
     const m = Number(tenure);
@@ -42,9 +45,26 @@ export function OpenRdPage() {
     return d.toISOString().slice(0, 10);
   }, [tenure]);
 
-  const submit = () => {
-    showToast('Recurring deposit opened successfully! RD No: RD-2024-001');
-    setTimeout(() => navigate('rd-tracker'), 1500);
+  const submit = async () => {
+    if (!user) return;
+    setSubmitting(true);
+    try {
+      const result = await rdService.create({
+        customerId: user.id,
+        linkedAccountNumber: '0000000001',
+        monthlyAmount: Number(monthly),
+        tenureMonths: Number(tenure),
+        debitDate: Number(debitDate),
+        paymentMode,
+        nomineeName: nominee || undefined,
+      });
+      showToast(`RD opened successfully! RD No: ${result.rdNumber}`);
+      setTimeout(() => navigate('rd-tracker'), 1500);
+    } catch {
+      showToast('Failed to open RD', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -62,7 +82,6 @@ export function OpenRdPage() {
           <Card padding="lg">
             <h3 className="mb-4 font-display text-base font-bold text-ink-900">RD details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Select label="Debit from account" options={accounts.map((a) => ({ value: a.id, label: `${a.type.charAt(0)}${a.type.slice(1).toLowerCase()} · XXXX${a.accountNumber.slice(-4)}` }))} />
               <Input label="Monthly installment" required type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} hint="Min ₹500 · No maximum" leftIcon={<span className="text-sm font-semibold text-ink-500">₹</span>} />
               <Select label="Tenure" value={tenure} onChange={(e) => setTenure(e.target.value)} options={tenureOptions} />
               <div>
@@ -83,7 +102,6 @@ export function OpenRdPage() {
               <RadioGroup label="Payment mode" name="paymentMode" value={paymentMode} onChange={setPaymentMode}
                 options={[{ value: 'AUTO_DEBIT', label: 'Auto Debit' }, { value: 'MANUAL', label: 'Manual Payment' }]} />
             </div>
-            <Input label="First installment date" type="date" className="mt-4" />
           </Card>
 
           <Card padding="lg">
@@ -146,8 +164,9 @@ export function OpenRdPage() {
           </Card>
 
           <div className="space-y-2">
-            <Button fullWidth size="lg" disabled={!acknowledged} onClick={submit} leftIcon={<Check className="h-4 w-4" />}>Confirm & open RD</Button>
-            <Button fullWidth variant="outline" onClick={() => showToast('Draft saved', 'info')}>Save draft</Button>
+            <Button fullWidth size="lg" disabled={!acknowledged || submitting} onClick={submit} leftIcon={<Check className="h-4 w-4" />}>
+              {submitting ? 'Opening RD…' : 'Confirm & open RD'}
+            </Button>
           </div>
         </div>
       </div>

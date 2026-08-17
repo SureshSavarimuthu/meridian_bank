@@ -5,6 +5,7 @@ interface CardProps {
   children: ReactNode;
   className?: string;
   padding?: 'none' | 'sm' | 'md' | 'lg';
+  onClick?: () => void;
 }
 
 const padClasses = {
@@ -14,9 +15,9 @@ const padClasses = {
   lg: 'p-6 sm:p-8',
 };
 
-export function Card({ children, className, padding = 'md' }: CardProps) {
+export function Card({ children, className, padding = 'md', onClick }: CardProps) {
   return (
-    <div className={classNames('card-surface', padClasses[padding], className)}>
+    <div className={classNames('card-surface', padClasses[padding], className)} onClick={onClick}>
       {children}
     </div>
   );

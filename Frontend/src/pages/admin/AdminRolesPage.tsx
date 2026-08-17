@@ -81,8 +81,9 @@ export function AdminRolesPage() {
                   <Checkbox
                     checked={permissions.includes(perm)}
                     onChange={() => togglePermission(perm)}
-                  />
-                  <span className="text-sm font-medium text-ink-700">{perm.replace('_', ' ')}</span>
+                  >
+                    {perm.replace('_', ' ')}
+                  </Checkbox>
                 </label>
               ))}
             </div>

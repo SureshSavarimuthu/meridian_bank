@@ -1,36 +1,39 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { currentUser, mockUsers } from '@/lib/mockData';
+import { apiCall } from '@/services/api';
 
-export type UserRole = 
-  | 'CUSTOMER' 
-  | 'BRANCH_MANAGER' 
-  | 'REGIONAL_MANAGER' 
-  | 'ZONAL_MANAGER' 
-  | 'CIRCLE_HEAD' 
-  | 'GENERAL_MANAGER' 
-  | 'LOAN_OFFICER' 
-  | 'TELLER' 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true' || import.meta.env.VITE_USE_MOCK === undefined;
+
+export type UserRole =
+  | 'CUSTOMER'
+  | 'BRANCH_MANAGER'
+  | 'REGIONAL_MANAGER'
+  | 'ZONAL_MANAGER'
+  | 'CIRCLE_HEAD'
+  | 'GENERAL_MANAGER'
+  | 'LOAN_OFFICER'
+  | 'TELLER'
   | 'CSO'
   | 'SYSTEM_ADMIN';
 
-export type Permission = 
-  | 'ACCOUNT_VIEW' 
-  | 'ACCOUNT_CREATE' 
+export type Permission =
+  | 'ACCOUNT_VIEW'
+  | 'ACCOUNT_CREATE'
   | 'ACCOUNT_UPDATE'
-  | 'FD_CREATE' 
-  | 'FD_VIEW' 
-  | 'FD_RENEW' 
+  | 'FD_CREATE'
+  | 'FD_VIEW'
+  | 'FD_RENEW'
   | 'FD_WITHDRAW'
-  | 'RD_CREATE' 
-  | 'RD_VIEW' 
+  | 'RD_CREATE'
+  | 'RD_VIEW'
   | 'RD_PAY_INSTALLMENT'
-  | 'LOAN_APPLY' 
-  | 'LOAN_APPROVE' 
+  | 'LOAN_APPLY'
+  | 'LOAN_APPROVE'
   | 'LOAN_REJECT'
-  | 'TRANSACTION_INITIATE' 
-  | 'TRANSACTION_APPROVE' 
+  | 'TRANSACTION_INITIATE'
+  | 'TRANSACTION_APPROVE'
   | 'TRANSACTION_REVERSE'
-  | 'CARD_APPLY' 
+  | 'CARD_APPLY'
   | 'CARD_BLOCK'
   | 'DOCUMENT_VERIFY'
   | 'RISK_ASSESS'
@@ -64,76 +67,129 @@ interface AuthState {
   hasRole: (role: UserRole) => boolean;
   hasAnyRole: (roles: UserRole[]) => boolean;
   refreshToken: () => Promise<void>;
+  register: (username: string, password: string, email: string, role?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
+function mapApiUser(apiUser: Record<string, unknown>): User {
+  return {
+    id: apiUser.id as string,
+    userId: apiUser.username as string,
+    fullName: (apiUser.username as string).replace('.', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    email: (apiUser.email as string) || '',
+    mobile: '',
+    roles: (apiUser.roles as string[]) as UserRole[],
+    permissions: (apiUser.permissions as string[]) as Permission[],
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setAuth] = useState(false);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
-  // Initialize from localStorage on mount
   const initializeAuth = useCallback(() => {
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('accessToken');
-    
     if (storedUser && token) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
         setAuth(true);
-      } catch (error) {
-        console.error('Failed to restore session:', error);
+      } catch {
         localStorage.clear();
       }
     }
   }, []);
 
-  // Initialize on mount
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+  useEffect(() => { initializeAuth(); }, [initializeAuth]);
 
   const login = useCallback(
     async (userId: string, password: string, loginType: 'CUSTOMER' | 'EMPLOYEE' | 'ADMIN') => {
       setLoading(true);
       try {
-        // Mock login - look up user from mockUsers by userId
-        let mockUser: User | null = null;
-
-        // Find user by userId in mockUsers
-        for (const user of Object.values(mockUsers)) {
-          if (user.userId === userId) {
-            mockUser = user;
-            break;
+        if (USE_MOCK) {
+          let mockUser: User | null = null;
+          for (const u of Object.values(mockUsers)) {
+            if (u.userId === userId) { mockUser = u; break; }
           }
+          if (!mockUser) {
+            mockUser = {
+              ...currentUser,
+              userId,
+              roles: loginType === 'CUSTOMER' ? ['CUSTOMER'] : loginType === 'ADMIN' ? ['SYSTEM_ADMIN'] : ['LOAN_OFFICER'],
+            };
+          }
+          mockUser.lastLogin = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short', hour12: true });
+          localStorage.setItem('accessToken', 'mock-jwt-token');
+          localStorage.setItem('refreshToken', 'mock-refresh-token');
+          localStorage.setItem('user', JSON.stringify(mockUser));
+          setUser(mockUser);
+          setAuth(true);
+        } else {
+          const response: Record<string, unknown> = await apiCall('/auth/login', 'POST', {
+            username: userId,
+            password,
+            loginType,
+          });
+          const data = response.data as Record<string, unknown>;
+          const apiUser = data.user as Record<string, unknown>;
+          localStorage.setItem('accessToken', data.accessToken as string);
+          localStorage.setItem('refreshToken', data.refreshToken as string);
+          const mappedUser = mapApiUser(apiUser);
+          mappedUser.lastLogin = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short', hour12: true });
+          localStorage.setItem('user', JSON.stringify(mappedUser));
+          setUser(mappedUser);
+          setAuth(true);
         }
-
-        // If user not found, create a default user with roles based on loginType
-        if (!mockUser) {
-          mockUser = {
-            ...currentUser,
-            userId,
-            roles: loginType === 'CUSTOMER' ? ['CUSTOMER'] : loginType === 'ADMIN' ? ['SYSTEM_ADMIN'] : ['LOAN_OFFICER'],
-          };
-        }
-
-        // Add lastLogin timestamp
-        mockUser.lastLogin = new Date().toLocaleString('en-IN', { 
-          dateStyle: 'short',
-          timeStyle: 'short',
-          hour12: true 
-        });
-
-        localStorage.setItem('accessToken', 'mock-jwt-token');
-        localStorage.setItem('refreshToken', 'mock-refresh-token');
-        localStorage.setItem('user', JSON.stringify(mockUser));
-
-        setUser(mockUser);
-        setAuth(true);
       } catch (error) {
         console.error('Login failed:', error);
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const register = useCallback(
+    async (username: string, password: string, email: string, role?: string) => {
+      setLoading(true);
+      try {
+        if (USE_MOCK) {
+          const newUser: User = {
+            id: crypto.randomUUID(),
+            userId: username,
+            fullName: username.replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            email,
+            mobile: '',
+            roles: [((role || 'CUSTOMER') as UserRole)],
+            permissions: [] as Permission[],
+          };
+          localStorage.setItem('accessToken', 'mock-jwt-token');
+          localStorage.setItem('refreshToken', 'mock-refresh-token');
+          localStorage.setItem('user', JSON.stringify(newUser));
+          setUser(newUser);
+          setAuth(true);
+        } else {
+          const response: Record<string, unknown> = await apiCall('/auth/register', 'POST', {
+            username,
+            password,
+            email,
+            role,
+          });
+          const data = response.data as Record<string, unknown>;
+          const apiUser = data.user as Record<string, unknown>;
+          localStorage.setItem('accessToken', data.accessToken as string);
+          localStorage.setItem('refreshToken', data.refreshToken as string);
+          const mappedUser = mapApiUser(apiUser);
+          localStorage.setItem('user', JSON.stringify(mappedUser));
+          setUser(mappedUser);
+          setAuth(true);
+        }
+      } catch (error) {
+        console.error('Registration failed:', error);
         throw error;
       } finally {
         setLoading(false);
@@ -145,7 +201,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     setLoading(true);
     try {
-      // Mock logout - replace with actual API call
       localStorage.clear();
       setUser(null);
       setAuth(false);
@@ -157,35 +212,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const hasPermission = useCallback(
-    (permission: Permission): boolean => {
-      return user?.permissions.includes(permission) ?? false;
-    },
+    (permission: Permission): boolean => user?.permissions.includes(permission) ?? false,
     [user]
   );
 
   const hasRole = useCallback(
-    (role: UserRole): boolean => {
-      return user?.roles.includes(role) ?? false;
-    },
+    (role: UserRole): boolean => user?.roles.includes(role) ?? false,
     [user]
   );
 
   const hasAnyRole = useCallback(
-    (roles: UserRole[]): boolean => {
-      return roles.some((role) => user?.roles.includes(role) ?? false);
-    },
+    (roles: UserRole[]): boolean => roles.some((role) => user?.roles.includes(role) ?? false),
     [user]
   );
 
   const refreshToken = useCallback(async () => {
     try {
-      // Mock refresh - replace with actual API call
-      const token = localStorage.getItem('refreshToken');
-      if (!token) {
-        await logout();
-        return;
+      const rt = localStorage.getItem('refreshToken');
+      if (!rt) { await logout(); return; }
+      if (!USE_MOCK) {
+        const response: Record<string, unknown> = await apiCall('/auth/refresh-token', 'POST', { refreshToken: rt });
+        const data = response.data as Record<string, unknown>;
+        localStorage.setItem('accessToken', data.accessToken as string);
+        localStorage.setItem('refreshToken', data.refreshToken as string);
       }
-      // Token would be refreshed here via API
     } catch (error) {
       console.error('Token refresh failed:', error);
       await logout();
@@ -194,17 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        loading,
-        user,
-        login,
-        logout,
-        hasPermission,
-        hasRole,
-        hasAnyRole,
-        refreshToken,
-      }}
+      value={{ isAuthenticated, loading, user, login, logout, hasPermission, hasRole, hasAnyRole, refreshToken, register }}
     >
       {children}
     </AuthContext.Provider>

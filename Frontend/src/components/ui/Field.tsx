@@ -8,7 +8,8 @@ interface FieldProps {
   required?: boolean;
 }
 
-function wrapField<T extends FieldProps>(Comp: React.ComponentType<T>) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _wrapField<T extends FieldProps>(Comp: React.ComponentType<T>) {
   return function FieldWrapper({ label, hint, error, required, ...rest }: T) {
     return (
       <div className="w-full">
@@ -163,7 +164,7 @@ interface RadioGroupProps extends FieldProps {
   className?: string;
 }
 
-export function RadioGroup({ label, name, value, options, onChange, hint, error, className }: RadioGroupProps) {
+export function RadioGroup({ label, value, options, onChange, hint, error, className }: RadioGroupProps) {
   return (
     <div className={className}>
       {label && <label className="input-label">{label}</label>}
@@ -193,12 +194,13 @@ interface CheckboxProps extends FieldProps {
   checked?: boolean;
   onChange?: (checked: boolean) => void;
   children: ReactNode;
+  disabled?: boolean;
 }
 
-export function Checkbox({ label, checked, onChange, children, hint, error }: CheckboxProps) {
+export function Checkbox({ label, checked, onChange, children, hint, error, disabled }: CheckboxProps) {
   return (
     <div>
-      <label className="flex cursor-pointer items-start gap-3">
+      <label className={classNames('flex items-start gap-3', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer')}>
         <span
           className={classNames(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all',
@@ -214,7 +216,7 @@ export function Checkbox({ label, checked, onChange, children, hint, error }: Ch
         <span className="text-sm text-ink-700">
           {children || label}
         </span>
-        <input type="checkbox" checked={checked} onChange={(e) => onChange?.(e.target.checked)} className="sr-only" />
+        <input type="checkbox" checked={checked} onChange={(e) => onChange?.(e.target.checked)} disabled={disabled} className="sr-only" />
       </label>
       {error ? <p className="mt-1 text-xs font-medium text-error-600">{error}</p> : hint ? <p className="input-hint">{hint}</p> : null}
     </div>

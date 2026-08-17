@@ -12,13 +12,15 @@ import { Badge } from '@/components/ui/Badge';
 export function AdminUsersPage() {
   const { navigate } = useNav();
   const { toast, showToast } = useToast();
-  const [users, setUsers] = useState([
+  interface UserEntry { id: number; name: string; role: string; branch: string; status: string; email: string; }
+
+  const [users, setUsers] = useState<UserEntry[]>([
     { id: 1, name: 'Mr. Sharma', role: 'Branch Manager', branch: 'Mumbai Central', status: 'Active', email: 'sharma@bank.com' },
     { id: 2, name: 'Ms. Patel', role: 'Regional Manager', branch: 'West Zone', status: 'Active', email: 'patel@bank.com' },
     { id: 3, name: 'Mr. Iyer', role: 'Loan Officer', branch: 'Mumbai Central', status: 'Active', email: 'iyer@bank.com' },
     { id: 4, name: 'Ms. Rao', role: 'Teller', branch: 'Delhi North', status: 'Inactive', email: 'rao@bank.com' },
   ]);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<UserEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', role: '', branch: '', status: 'Active' });
 
@@ -39,7 +41,7 @@ export function AdminUsersPage() {
     setShowForm(false);
   };
 
-  const handleEditUser = (user: any) => {
+  const handleEditUser = (user: UserEntry) => {
     setEditingUser(user);
     setFormData({ name: user.name, email: user.email, role: user.role, branch: user.branch, status: user.status });
     setShowForm(true);

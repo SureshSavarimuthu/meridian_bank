@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # ========================
+  # DATABASES
+  # ========================
+  postgres:
+    image: postgres:16-alpine
+    container_name: banking-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ========================
+  # EUREKA DISCOVERY SERVER
+  # ========================
+  discovery-server:
+    build:
+      context: ./Backend
+      dockerfile: discovery-server/Dockerfile
+    container_name: banking-discovery
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ========================
+  # API GATEWAY
+  # ========================
+  api-gateway:
+    build:
+      context: ./Backend
+      dockerfile: api-gateway/Dockerfile
+    container_name: banking-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  # ========================
+  # AUTH SERVICE
+  # ========================
+  auth-service:
+    build:
+      context: ./Backend
+      dockerfile: auth-service/Dockerfile
+    container_name: banking-auth
+    ports:
+      - "8081:8081"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  # ========================
+  # ACCOUNT SERVICE
+  # ========================
+  account-service:
+    build:
+      context: ./Backend
+      dockerfile: account-service/Dockerfile
+    container_name: banking-account
+    ports:
+      - "8082:8082"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/accountdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  # ========================
+  # LOAN SERVICE
+  # ========================
+  loan-service:
+    build:
+      context: ./Backend
+      dockerfile: loan-service/Dockerfile
+    container_name: banking-loan
+    ports:
+      - "8083:8083"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/loandb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  # ========================
+  # FD/RD SERVICE
+  # ========================
+  fd-rd-service:
+    build:
+      context: ./Backend
+      dockerfile: fd-rd-service/Dockerfile
+    container_name: banking-fd-rd
+    ports:
+      - "8084:8084"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fdrddb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  # ========================
+  # FRONTEND
+  # ========================
+  frontend:
+    build:
+      context: ./Frontend
+    container_name: banking-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+
+volumes:
+  pgdata:

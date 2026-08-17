@@ -34,7 +34,7 @@ export const mockUsers: Record<string, User> = {
       'ACCOUNT_VIEW', 'ACCOUNT_CREATE',
       'LOAN_APPLY', 'LOAN_APPROVE',
       'DOCUMENT_VERIFY', 'RISK_ASSESS',
-      'TRANSACTION_VIEW',
+      'TRANSACTION_INITIATE',
     ],
     branchId: 'BR-001',
   },

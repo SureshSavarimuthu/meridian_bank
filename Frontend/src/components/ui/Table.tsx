@@ -7,6 +7,7 @@ export interface Column<T> {
   render?: (row: T) => ReactNode;
   align?: 'left' | 'right' | 'center';
   className?: string;
+  width?: string;
 }
 
 interface DataTableProps<T> {
