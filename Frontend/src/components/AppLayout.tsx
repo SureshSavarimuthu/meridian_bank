@@ -58,8 +58,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <Landmark className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-display text-base font-extrabold tracking-tight text-ink-900">Meridian</p>
-          <p className="-mt-1 text-xs font-medium text-ink-400">Banking Portal</p>
+          <p className="font-display text-base font-extrabold tracking-tight text-ink-900">VFS Bank</p>
+          <p className="-mt-1 text-xs font-medium text-ink-400">Veteran Financial Service Bank</p>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-3">

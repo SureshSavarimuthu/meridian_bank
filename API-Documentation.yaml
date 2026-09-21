@@ -1,0 +1,1485 @@
+openapi: 3.0.3
+info:
+  title: VFS Bank Microservices API
+  description: |
+    VFS Bank (Veteran Financial Service Bank) full-stack digital banking platform API documentation.
+    
+    ## Architecture
+    - **API Gateway**: http://localhost:8080 (all requests go through here)
+    - **Auth Service**: http://localhost:8081
+    - **Account Service**: http://localhost:8082
+    - **Loan Service**: http://localhost:8083
+    - **FD/RD Service**: http://localhost:8084
+    - **Eureka Discovery**: http://localhost:8761
+    
+    ## Authentication
+    Most endpoints require a JWT Bearer token in the `Authorization` header.
+    1. Call `POST /api/auth/login` to get an access token
+    2. Include header: `Authorization: Bearer <token>`
+    
+    ## Default Users (seeded by DataInitializer)
+    | Username | Password | Role |
+    |---|---|---|
+    | john.doe | Secure@123 | CUSTOMER |
+    | loan.officer | Secure@123 | LOAN_OFFICER |
+    | branch.manager | Secure@123 | BRANCH_MANAGER |
+    | admin.user | Secure@123 | SYSTEM_ADMIN |
+  version: 1.0.0
+  contact:
+    name: Banking System Team
+
+servers:
+  - url: http://localhost:8080
+    description: API Gateway (Production)
+  - url: http://localhost:8081
+    description: Auth Service (Direct)
+  - url: http://localhost:8082
+    description: Account Service (Direct)
+  - url: http://localhost:8083
+    description: Loan Service (Direct)
+  - url: http://localhost:8084
+    description: FD/RD Service (Direct)
+
+tags:
+  - name: Auth
+    description: Authentication & user management
+  - name: Accounts
+    description: Bank account operations
+  - name: Transactions
+    description: Fund transfers & transaction history
+  - name: Loans
+    description: Loan application & lifecycle
+  - name: Fixed Deposits
+    description: Fixed deposit management
+  - name: Recurring Deposits
+    description: Recurring deposit management
+
+paths:
+  # ==================== AUTH ====================
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with credentials
+      description: Authenticates user and returns JWT access + refresh tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: john.doe
+              password: Secure@123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Creates a new user account. Defaults to CUSTOMER role if not specified.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: new.user
+              password: Secure@123
+              email: newuser@test.com
+              role: CUSTOMER
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Username or email already exists
+
+  /api/auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Exchange a valid refresh token for a new access token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        '401':
+          description: Invalid refresh token
+
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password
+      description: Changes the authenticated user's password.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+        '400':
+          description: Current password is incorrect
+
+  /api/auth/profile:
+    put:
+      tags: [Auth]
+      summary: Update user profile
+      description: Updates email or employee ID of the authenticated user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              email: john.doe.updated@test.com
+              employeeId: EMP1001
+      responses:
+        '200':
+          description: User profile updated successfully
+        '400':
+          description: Validation error or email already in use
+
+  /api/auth/users/{id}:
+    put:
+      tags: [Auth]
+      summary: Update user details by ID
+      description: Updates email, employee ID, status, or role of a specific user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              email: updated.user@test.com
+              status: ACTIVE
+              role: CUSTOMER
+      responses:
+        '200':
+          description: User updated successfully
+        '400':
+          description: Invalid request or user not found
+
+  # ==================== ACCOUNTS ====================
+  /api/accounts/customer/{customerId}:
+    get:
+      tags: [Accounts]
+      summary: Get customer accounts
+      description: Returns all accounts belonging to a customer.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+
+  /api/accounts/{accountId}:
+    get:
+      tags: [Accounts]
+      summary: Get account by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+
+  /api/accounts:
+    post:
+      tags: [Accounts]
+      summary: Create a new account
+      description: Requires BRANCH_MANAGER role or ACCOUNT_CREATE permission.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreateRequest'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+
+  # ==================== TRANSACTIONS ====================
+  /api/transactions/account/{accountId}:
+    get:
+      tags: [Transactions]
+      summary: Get account transactions
+      description: Returns transaction history for an account, ordered by newest first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+
+  /api/transactions/transfer:
+    post:
+      tags: [Transactions]
+      summary: Transfer funds between accounts
+      description: Transfers money from source to target account. Uses SERIALIZABLE isolation.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+            example:
+              sourceAccountNumber: ACC001
+              targetAccountNumber: ACC002
+              amount: 5000.00
+              description: Monthly rent
+      responses:
+        '200':
+          description: Transfer successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          description: Insufficient funds or account not active
+
+  # ==================== LOANS ====================
+  /api/loans/apply:
+    post:
+      tags: [Loans]
+      summary: Apply for a loan
+      description: |
+        Creates a new loan application. Requires CUSTOMER role.
+        Loan types: PERSONAL, HOME, AUTO, EDUCATION, BUSINESS
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationRequest'
+            example:
+              customerId: "550e8400-e29b-41d4-a716-446655440000"
+              loanType: PERSONAL
+              amount: 150000.00
+              interestRate: 10.50
+              tenure: 36
+              purpose: Home renovation
+      responses:
+        '200':
+          description: Loan application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/customer/{customerId}:
+    get:
+      tags: [Loans]
+      summary: Get loans by customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/{loanId}:
+    get:
+      tags: [Loans]
+      summary: Get loan by ID (includes repayment schedule)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Loan details with repayment schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/number/{loanNumber}:
+    get:
+      tags: [Loans]
+      summary: Get loan by loan number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: LN000001
+      responses:
+        '200':
+          description: Loan details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/pending:
+    get:
+      tags: [Loans]
+      summary: Get all pending loans
+      description: Requires LOAN_OFFICER, BRANCH_MANAGER, or REGIONAL_MANAGER role.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of pending loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/status/{status}:
+    get:
+      tags: [Loans]
+      summary: Get loans by status
+      description: |
+        Filter by status: PENDING, UNDER_REVIEW, APPROVED, REJECTED, DISBURSED, CLOSED, DEFAULTED
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [PENDING, UNDER_REVIEW, APPROVED, REJECTED, DISBURSED, CLOSED, DEFAULTED]
+      responses:
+        '200':
+          description: Filtered loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/decide:
+    post:
+      tags: [Loans]
+      summary: Approve or reject a loan
+      description: Requires LOAN_OFFICER, BRANCH_MANAGER, or REGIONAL_MANAGER role.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanDecisionRequest'
+            example:
+              loanId: "550e8400-e29b-41d4-a716-446655440000"
+              decision: APPROVED
+              approvedAmount: 150000.00
+              approvedInterestRate: 10.50
+      responses:
+        '200':
+          description: Loan decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+        '400':
+          description: Loan cannot be decided in current status
+
+  /api/loans/{loanId}/disburse:
+    post:
+      tags: [Loans]
+      summary: Disburse an approved loan
+      description: |
+        Only BRANCH_MANAGER or REGIONAL_MANAGER. 
+        Only approved loans can be disbursed. Generates repayment schedule.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Loan disbursed with repayment schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/{loanId}/close:
+    post:
+      tags: [Loans]
+      summary: Close a loan
+      description: Sets outstanding amount to zero and status to CLOSED.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Loan closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanResponse'
+
+  /api/loans/stats:
+    get:
+      tags: [Loans]
+      summary: Get loan statistics
+      description: Returns count of pending, approved, and disbursed loans.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Loan stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: integer
+                  approved:
+                    type: integer
+                  disbursed:
+                    type: integer
+
+  # ==================== FIXED DEPOSITS ====================
+  /api/fd:
+    post:
+      tags: [Fixed Deposits]
+      summary: Open a new Fixed Deposit
+      description: |
+        Creates an FD. Rate is auto-calculated based on tenure.
+        FD types: CUMULATIVE, NON_CUMULATIVE, FLEXI, TAX_SAVER
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FdCreateRequest'
+            example:
+              customerId: "550e8400-e29b-41d4-a716-446655440000"
+              linkedAccountNumber: ACC001
+              fdType: CUMULATIVE
+              principal: 100000.00
+              tenureDays: 365
+              autoRenew: true
+              nomineeName: Jane Doe
+      responses:
+        '200':
+          description: FD created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/customer/{customerId}:
+    get:
+      tags: [Fixed Deposits]
+      summary: Get FDs by customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of FDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/{fdId}:
+    get:
+      tags: [Fixed Deposits]
+      summary: Get FD by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: fdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: FD details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/number/{fdNumber}:
+    get:
+      tags: [Fixed Deposits]
+      summary: Get FD by FD number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: fdNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: FD000001
+      responses:
+        '200':
+          description: FD details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/status/{status}:
+    get:
+      tags: [Fixed Deposits]
+      summary: Get FDs by status
+      description: "Filter: ACTIVE, MATURED, WITHDRAWN, CLOSED"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ACTIVE, MATURED, WITHDRAWN, CLOSED]
+      responses:
+        '200':
+          description: Filtered FDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/{fdId}/withdraw:
+    post:
+      tags: [Fixed Deposits]
+      summary: Withdraw an FD (premature closure)
+      description: Only ACTIVE FDs can be withdrawn.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: fdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: FD withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/{fdId}/renew:
+    post:
+      tags: [Fixed Deposits]
+      summary: Renew an FD
+      description: Closes current FD and opens a new one with maturity amount as principal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: fdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: New FD opened on renewal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FdResponse'
+
+  /api/fd/stats:
+    get:
+      tags: [Fixed Deposits]
+      summary: Get FD statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: FD stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    type: integer
+                  matured:
+                    type: integer
+
+  # ==================== RECURRING DEPOSITS ====================
+  /api/rd:
+    post:
+      tags: [Recurring Deposits]
+      summary: Open a new Recurring Deposit
+      description: |
+        Creates an RD with auto-generated installment schedule.
+        Rate is auto-calculated based on tenure.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RdCreateRequest'
+            example:
+              customerId: "550e8400-e29b-41d4-a716-446655440000"
+              linkedAccountNumber: ACC001
+              monthlyAmount: 1000.00
+              tenureMonths: 12
+              debitDate: 15
+              paymentMode: AUTO_DEBIT
+              nomineeName: Jane Doe
+      responses:
+        '200':
+          description: RD created with installment schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/customer/{customerId}:
+    get:
+      tags: [Recurring Deposits]
+      summary: Get RDs by customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of RDs with installments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/{rdId}:
+    get:
+      tags: [Recurring Deposits]
+      summary: Get RD by ID (includes installment schedule)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: RD details with installments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/number/{rdNumber}:
+    get:
+      tags: [Recurring Deposits]
+      summary: Get RD by RD number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rdNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: RD000001
+      responses:
+        '200':
+          description: RD details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/status/{status}:
+    get:
+      tags: [Recurring Deposits]
+      summary: Get RDs by status
+      description: "Filter: ACTIVE, MATURED, CLOSED, DEFAULTED"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ACTIVE, MATURED, CLOSED, DEFAULTED]
+      responses:
+        '200':
+          description: Filtered RDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/{rdId}/pay:
+    post:
+      tags: [Recurring Deposits]
+      summary: Pay next pending installment
+      description: Marks the next pending/overdue installment as PAID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Installment paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/{rdId}/close:
+    post:
+      tags: [Recurring Deposits]
+      summary: Close RD prematurely
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rdId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: RD closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RdResponse'
+
+  /api/rd/stats:
+    get:
+      tags: [Recurring Deposits]
+      summary: Get RD statistics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: RD stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    type: integer
+
+# ==================== SCHEMAS ====================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from /api/auth/login
+
+  schemas:
+    # ---- Auth ----
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: john.doe
+        password:
+          type: string
+          example: Secure@123
+        loginType:
+          type: string
+          enum: [CUSTOMER, EMPLOYEE, ADMIN]
+
+    RegisterRequest:
+      type: object
+      required: [username, password, email]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: new.user
+        password:
+          type: string
+          minLength: 8
+          example: Secure@123
+        email:
+          type: string
+          format: email
+          example: newuser@test.com
+        role:
+          type: string
+          description: Optional, defaults to CUSTOMER
+          enum: [CUSTOMER, LOAN_OFFICER, BRANCH_MANAGER, SYSTEM_ADMIN]
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    PasswordChangeRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        employeeId:
+          type: string
+        status:
+          type: string
+          example: ACTIVE
+        role:
+          type: string
+          example: CUSTOMER
+
+    LoginResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Login successful
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+            tokenType:
+              type: string
+              example: Bearer
+            expiresIn:
+              type: integer
+              example: 86400000
+            requiresTwoFactor:
+              type: boolean
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                username:
+                  type: string
+                email:
+                  type: string
+                roles:
+                  type: array
+                  items:
+                    type: string
+                permissions:
+                  type: array
+                  items:
+                    type: string
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+            tokenType:
+              type: string
+            expiresIn:
+              type: integer
+
+    # ---- Accounts ----
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountNumber:
+          type: string
+          example: ACC001
+        accountType:
+          type: string
+          enum: [SAVINGS, CHECKING, FD, RD]
+        balance:
+          type: number
+          format: decimal
+          example: 50000.0000
+        currency:
+          type: string
+          example: USD
+        status:
+          type: string
+          enum: [ACTIVE, FROZEN, CLOSED]
+        openedDate:
+          type: string
+          format: date
+
+    AccountCreateRequest:
+      type: object
+      properties:
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+          enum: [SAVINGS, CHECKING, FD, RD]
+        balance:
+          type: number
+        currency:
+          type: string
+          default: USD
+
+    # ---- Transactions ----
+    TransferRequest:
+      type: object
+      required: [sourceAccountNumber, targetAccountNumber, amount]
+      properties:
+        sourceAccountNumber:
+          type: string
+          example: ACC001
+        targetAccountNumber:
+          type: string
+          example: ACC002
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.01
+          example: 5000.00
+        description:
+          type: string
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transactionType:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL, TRANSFER_IN, TRANSFER_OUT]
+        amount:
+          type: number
+          format: decimal
+        balanceAfter:
+          type: number
+          format: decimal
+        referenceNumber:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ---- Loans ----
+    LoanApplicationRequest:
+      type: object
+      required: [customerId, loanType, amount, interestRate, tenure]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        loanType:
+          type: string
+          enum: [PERSONAL, HOME, AUTO, EDUCATION, BUSINESS]
+          maxLength: 30
+        amount:
+          type: number
+          format: decimal
+          minimum: 1000
+          maximum: 50000000
+          example: 150000.00
+        interestRate:
+          type: number
+          format: decimal
+          minimum: 1
+          maximum: 36
+          example: 10.50
+        tenure:
+          type: integer
+          minimum: 6
+          maximum: 360
+          description: Tenure in months
+          example: 36
+        purpose:
+          type: string
+        collateralType:
+          type: string
+        collateralDetails:
+          type: string
+
+    LoanDecisionRequest:
+      type: object
+      required: [loanId, decision]
+      properties:
+        loanId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [APPROVED, REJECTED]
+        rejectionReason:
+          type: string
+        approvedAmount:
+          type: number
+          format: decimal
+          description: If different from applied amount
+        approvedInterestRate:
+          type: number
+          format: decimal
+
+    LoanResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        loanNumber:
+          type: string
+          example: LN000001
+        customerId:
+          type: string
+          format: uuid
+        loanType:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        interestRate:
+          type: number
+          format: decimal
+        tenure:
+          type: integer
+        monthlyEmi:
+          type: number
+          format: decimal
+        outstandingAmount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [PENDING, UNDER_REVIEW, APPROVED, REJECTED, DISBURSED, CLOSED, DEFAULTED]
+        appliedDate:
+          type: string
+          format: date-time
+        approvedDate:
+          type: string
+          format: date-time
+        disbursedDate:
+          type: string
+          format: date-time
+        purpose:
+          type: string
+        collateralType:
+          type: string
+        rejectionReason:
+          type: string
+        approvedBy:
+          type: string
+          format: uuid
+        repaymentSchedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepaymentSchedule'
+
+    RepaymentSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        installmentNumber:
+          type: integer
+        dueDate:
+          type: string
+          format: date
+        amountDue:
+          type: number
+          format: decimal
+        amountPaid:
+          type: number
+          format: decimal
+        principalComponent:
+          type: number
+          format: decimal
+        interestComponent:
+          type: number
+          format: decimal
+        penaltyAmount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [PENDING, PAID, OVERDUE]
+
+    # ---- Fixed Deposits ----
+    FdCreateRequest:
+      type: object
+      required: [customerId, linkedAccountNumber, fdType, principal, tenureDays]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        linkedAccountNumber:
+          type: string
+          example: ACC001
+        fdType:
+          type: string
+          enum: [CUMULATIVE, NON_CUMULATIVE, FLEXI, TAX_SAVER]
+        principal:
+          type: number
+          format: decimal
+          minimum: 1000
+          example: 100000.00
+        tenureDays:
+          type: integer
+          minimum: 7
+          example: 365
+        payoutFrequency:
+          type: string
+          enum: [MONTHLY, QUARTERLY, ANNUAL, AT_MATURITY]
+          default: AT_MATURITY
+        autoRenew:
+          type: boolean
+          default: true
+        nomineeName:
+          type: string
+        nomineeRelationship:
+          type: string
+          enum: [SPOUSE, CHILD, PARENT]
+
+    FdResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fdNumber:
+          type: string
+          example: FD000001
+        customerId:
+          type: string
+          format: uuid
+        linkedAccountNumber:
+          type: string
+        fdType:
+          type: string
+        principal:
+          type: number
+          format: decimal
+        interestRate:
+          type: number
+          format: decimal
+          description: Auto-calculated rate in % p.a.
+        tenureDays:
+          type: integer
+        payoutFrequency:
+          type: string
+        maturityDate:
+          type: string
+          format: date
+        maturityAmount:
+          type: number
+          format: decimal
+        interestEarned:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [ACTIVE, MATURED, WITHDRAWN, CLOSED]
+        autoRenew:
+          type: boolean
+        nomineeName:
+          type: string
+        openedDate:
+          type: string
+          format: date-time
+        closedDate:
+          type: string
+          format: date-time
+
+    # ---- Recurring Deposits ----
+    RdCreateRequest:
+      type: object
+      required: [customerId, linkedAccountNumber, monthlyAmount, tenureMonths]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        linkedAccountNumber:
+          type: string
+          example: ACC001
+        monthlyAmount:
+          type: number
+          format: decimal
+          minimum: 500
+          example: 1000.00
+        tenureMonths:
+          type: integer
+          minimum: 6
+          maximum: 120
+          example: 12
+        debitDate:
+          type: integer
+          description: Day of month (1-28)
+          minimum: 1
+          maximum: 28
+          default: 15
+        paymentMode:
+          type: string
+          enum: [AUTO_DEBIT, MANUAL]
+          default: AUTO_DEBIT
+        nomineeName:
+          type: string
+        nomineeRelationship:
+          type: string
+          enum: [SPOUSE, CHILD, PARENT]
+
+    RdResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        rdNumber:
+          type: string
+          example: RD000001
+        customerId:
+          type: string
+          format: uuid
+        linkedAccountNumber:
+          type: string
+        monthlyAmount:
+          type: number
+          format: decimal
+        interestRate:
+          type: number
+          format: decimal
+        tenureMonths:
+          type: integer
+        debitDate:
+          type: integer
+        paymentMode:
+          type: string
+        totalDeposited:
+          type: number
+          format: decimal
+        maturityDate:
+          type: string
+          format: date
+        maturityAmount:
+          type: number
+          format: decimal
+        interestEarned:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [ACTIVE, MATURED, CLOSED, DEFAULTED]
+        installmentsPaid:
+          type: integer
+        nomineeName:
+          type: string
+        openedDate:
+          type: string
+          format: date-time
+        closedDate:
+          type: string
+          format: date-time
+        installments:
+          type: array
+          items:
+            $ref: '#/components/schemas/RdInstallmentResponse'
+
+    RdInstallmentResponse:
+      type: object
+      properties:
+        installmentNumber:
+          type: integer
+        dueDate:
+          type: string
+          format: date
+        paidDate:
+          type: string
+          format: date
+          nullable: true
+        amount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [SCHEDULED, PENDING, PAID, OVERDUE]

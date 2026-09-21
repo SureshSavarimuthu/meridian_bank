@@ -37,8 +37,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
@@ -79,15 +78,13 @@ public class AuthController {
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "ERROR",
-                    "message", "Username already exists"
-            ));
+                    "message", "Username already exists"));
         }
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "ERROR",
-                    "message", "Email already registered"
-            ));
+                    "message", "Email already registered"));
         }
 
         User user = new User();
@@ -158,9 +155,7 @@ public class AuthController {
                                 "accessToken", newToken,
                                 "refreshToken", newRefreshToken,
                                 "tokenType", "Bearer",
-                                "expiresIn", 86400000
-                        )
-                ));
+                                "expiresIn", 86400000)));
             }
         } catch (Exception e) {
             // Token invalid
@@ -168,8 +163,7 @@ public class AuthController {
 
         return ResponseEntity.status(401).body(Map.of(
                 "status", "ERROR",
-                "message", "Invalid refresh token"
-        ));
+                "message", "Invalid refresh token"));
     }
 
     @PostMapping("/change-password")
@@ -186,8 +180,7 @@ public class AuthController {
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "status", "ERROR",
-                        "message", "Current password is incorrect"
-                ));
+                        "message", "Current password is incorrect"));
             }
 
             user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -195,13 +188,115 @@ public class AuthController {
 
             return ResponseEntity.ok(Map.of(
                     "status", "SUCCESS",
-                    "message", "Password changed successfully"
-            ));
+                    "message", "Password changed successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "status", "ERROR",
-                    "message", "Failed to change password"
-            ));
+                    "message", "Failed to change password"));
+        }
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateProfile(
+            @Valid @RequestBody UpdateUserRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String jwt = authHeader.substring(7);
+            String username = jwtService.extractUsername(jwt);
+
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            if (request.getEmail() != null && !request.getEmail().trim().isEmpty()
+                    && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "status", "ERROR",
+                            "message", "Email already in use"));
+                }
+                user.setEmail(request.getEmail());
+            }
+
+            if (request.getEmployeeId() != null && !request.getEmployeeId().trim().isEmpty()) {
+                user.setEmployeeId(request.getEmployeeId());
+            }
+
+            User updatedUser = userRepository.save(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "SUCCESS");
+            response.put("message", "User profile updated successfully");
+            Map<String, Object> data = new HashMap<>();
+            data.put("user", AuthResponse.UserDto.builder()
+                    .id(updatedUser.getId())
+                    .username(updatedUser.getUsername())
+                    .email(updatedUser.getEmail())
+                    .roles(new ArrayList<>(rbacService.getEffectiveRoles(updatedUser)))
+                    .permissions(new ArrayList<>(rbacService.getEffectivePermissions(updatedUser)))
+                    .build());
+            response.put("data", data);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to update user profile: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<Map<String, Object>> updateUser(
+            @PathVariable("id") java.util.UUID id,
+            @Valid @RequestBody UpdateUserRequest request) {
+        try {
+            User user = userRepository.findById(id)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + id));
+
+            if (request.getEmail() != null && !request.getEmail().trim().isEmpty()
+                    && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+                if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "status", "ERROR",
+                            "message", "Email already in use"));
+                }
+                user.setEmail(request.getEmail());
+            }
+
+            if (request.getEmployeeId() != null) {
+                user.setEmployeeId(request.getEmployeeId());
+            }
+
+            if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+                user.setStatus(request.getStatus());
+            }
+
+            if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
+                Role role = roleRepository.findByName(request.getRole())
+                        .orElseThrow(() -> new RuntimeException("Role not found: " + request.getRole()));
+                user.getRoles().clear();
+                user.getRoles().add(role);
+            }
+
+            User updatedUser = userRepository.save(user);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "SUCCESS");
+            response.put("message", "User updated successfully");
+            Map<String, Object> data = new HashMap<>();
+            data.put("user", AuthResponse.UserDto.builder()
+                    .id(updatedUser.getId())
+                    .username(updatedUser.getUsername())
+                    .email(updatedUser.getEmail())
+                    .roles(new ArrayList<>(rbacService.getEffectiveRoles(updatedUser)))
+                    .permissions(new ArrayList<>(rbacService.getEffectivePermissions(updatedUser)))
+                    .build());
+            response.put("data", data);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "status", "ERROR",
+                    "message", "Failed to update user: " + e.getMessage()));
         }
     }
 }

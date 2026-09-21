@@ -146,7 +146,7 @@ export function LoginPage() {
 
       <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-brand-50 p-3.5 text-xs text-brand-800">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-        <p>Never share your password or OTP with anyone. Meridian Bank will never ask for these.</p>
+        <p>Never share your password or OTP with anyone. VFS Bank will never ask for these.</p>
       </div>
     </AuthShell>
   );
@@ -162,8 +162,8 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
             <Landmark className="h-6 w-6" />
           </div>
           <div>
-            <p className="font-display text-xl font-extrabold tracking-tight">Meridian Bank</p>
-            <p className="-mt-1 text-sm text-brand-200">Secure Digital Banking</p>
+            <p className="font-display text-xl font-extrabold tracking-tight">VFS Bank</p>
+            <p className="-mt-1 text-sm text-brand-200">Veteran Financial Service Bank</p>
           </div>
         </div>
         <div className="relative">
@@ -198,7 +198,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
                 <Landmark className="h-5 w-5" />
               </div>
-              <p className="font-display text-lg font-extrabold text-ink-900">Meridian Bank</p>
+              <p className="font-display text-lg font-extrabold text-ink-900">VFS Bank</p>
             </div>
           </div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">{title}</h1>

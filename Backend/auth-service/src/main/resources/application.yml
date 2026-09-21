@@ -24,6 +24,6 @@ spring:
         format_sql: true
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  secret: a6efb1743e5a4f691531d9610e675e3f7a0ddfc21490cdafa9e5db51285b7663
   expiration: 86400000
   refresh-expiration: 604800000
